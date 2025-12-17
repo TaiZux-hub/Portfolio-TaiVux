@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tài Vũ | Creative Developer</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.0/vanilla-tilt.min.js"></script>
+
+    <style>
+        /* =========================================
+           1. CORE VARIABLES & SETTINGS
+           ========================================= */
+        :root {
+            --bg: #080808;
+            --text-main: #f0f0f0;
+            --text-muted: #888888;
+            --accent: #4ade80; /* Màu chủ đạo: Neon Green */
+            --accent-glow: rgba(74, 222, 128, 0.4);
+            
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body: 'Outfit', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; }
+        
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            overflow-x: hidden;
+            width: 100vw;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Visual Effects Layers */
+        .noise {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+            pointer-events: none; z-index: 9990; mix-blend-mode: overlay;
+        }
+        .vignette {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.8) 100%);
+            pointer-events: none; z-index: 9980;
+        }
+        #canvas-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+        }
+
+        /* Scroll Reveal Animation */
+        .scroll-hidden { opacity: 0; filter: blur(5px); transform: translateY(30px); transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+        .scroll-shown { opacity: 1; filter: blur(0); transform: translateY(0); }
+        .delay-1 { transition-delay: 0.1s; } .delay-2 { transition-delay: 0.2s; } .delay-3 { transition-delay: 0.3s; }
+
+        /* =========================================
+           2. CUSTOM CURSOR
+           ========================================= */
+        .cursor-dot {
+            position: fixed; top: 0; left: 0; width: 8px; height: 8px;
+            background: var(--text-main); border-radius: 50%;
+            z-index: 10000; pointer-events: none; mix-blend-mode: difference;
+        }
+        .cursor-circle {
+            position: fixed; top: 0; left: 0; width: 40px; height: 40px;
+            border: 1px solid var(--text-muted); border-radius: 50%;
+            z-index: 10000; pointer-events: none; transition: 0.1s; mix-blend-mode: difference;
+        }
+        .cursor-circle.active {
+            transform: scale(2.5); background: var(--text-main); border-color: transparent;
+        }
+
+        /* =========================================
+           3. LAYOUT & TYPOGRAPHY
+           ========================================= */
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 4vw; position: relative; z-index: 2; }
+        .section { padding: 15vh 0; border-top: 1px solid rgba(255,255,255,0.05); }
+
+        h1, h2, h3 { font-family: var(--font-display); text-transform: uppercase; line-height: 1; }
+        
+        .huge-text {
+            font-size: clamp(4rem, 12vw, 10rem); font-weight: 700;
+            color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,0.3);
+            position: relative; transition: 0.5s; cursor: default;
+        }
+        .huge-text span {
+            display: inline-block; transition: transform 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+            background: linear-gradient(120deg, var(--text-main) 0%, var(--text-main) 40%, var(--accent) 50%, var(--text-main) 60%, var(--text-main) 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; -webkit-text-stroke: 0;
+            animation: textGradientFlow 5s linear infinite;
+        }
+        @keyframes textGradientFlow { to { background-position: 200% center; } }
+        .huge-text:hover span { 
+            transform: translateY(-20px) skewX(-10deg); background: var(--accent);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px var(--accent-glow); animation: none;
+        }
+        
+        .typing-cursor::after {
+            content: '|'; display: inline-block; margin-left: 2px; color: var(--accent);
+            animation: blink 1s step-start infinite;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* =========================================
+           4. NAVIGATION
+           ========================================= */
+        nav {
+            position: fixed; top: 0; width: 100%; padding: 30px 4vw;
+            display: flex; justify-content: space-between; align-items: center; z-index: 100;
+            mix-blend-mode: difference;
+        }
+        .logo { font-size: 1.5rem; font-weight: 700; letter-spacing: -1px; text-decoration: none; color: white; }
+        .nav-items { display: flex; gap: 40px; }
+        .nav-link {
+            text-decoration: none; color: white; font-weight: 500; position: relative;
+            padding: 10px; display: inline-block;
+        }
+        .nav-link::after {
+            content: ''; position: absolute; bottom: 0; left: 50%; width: 0; height: 1px;
+            background: var(--text-main); transition: 0.4s ease; transform: translateX(-50%);
+        }
+        .nav-link:hover::after { width: 100%; }
+
+        /* =========================================
+           5. SKILLS MARQUEE
+           ========================================= */
+        .marquee-container {
+            overflow: hidden; white-space: nowrap; padding: 40px 0; background: var(--bg);
+            border-top: 1px solid rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .marquee-content { display: inline-block; animation: scroll 20s linear infinite; }
+        .marquee-item {
+            font-family: var(--font-display); font-size: 5rem; font-weight: 700;
+            color: rgba(255,255,255,0.1); margin-right: 60px; transition: 0.3s;
+        }
+        .marquee-container:hover .marquee-item { color: var(--accent); -webkit-text-stroke: 1px var(--accent); }
+        @keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+        /* =========================================
+           6. ABOUT SECTION (BENTO + SKILLS)
+           ========================================= */
+        .about-section { position: relative; padding: 120px 0; }
+        
+        .about-glow {
+            position: absolute; width: 600px; height: 600px;
+            background: radial-gradient(circle, var(--accent-glow), transparent 70%);
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            filter: blur(80px); opacity: 0.6; z-index: 0; pointer-events: none;
+        }
+
+        .bento-grid {
+            display: grid; grid-template-columns: 1.5fr 1fr; grid-template-rows: auto auto;
+            gap: 30px; position: relative; z-index: 2; margin-bottom: 80px;
+        }
+
+        .bento-card {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 24px; padding: 40px;
+            backdrop-filter: blur(20px);
+            transform-style: preserve-3d; transform: perspective(1000px);
+        }
+        .bento-content-layer { transform: translateZ(20px); }
+
+        .bento-title { font-size: 1.5rem; color: white; margin-bottom: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .bento-desc { color: #e0e0e0; font-size: 1.1rem; line-height: 1.7; }
+        .stat-number { font-size: 3.5rem; font-weight: 700; color: var(--accent); line-height: 1; margin-bottom: 5px; font-family: var(--font-display); }
+        .stat-label { color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+        
+        /* AVATAR STYLES */
+        .avatar-container {
+            position: relative; width: 160px; height: 160px; margin-bottom: 35px;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .profile-pic {
+            width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+            position: relative; z-index: 2; transition: transform 0.5s, filter 0.3s;
+        }
+        .avatar-container::before {
+            content: ''; position: absolute; top: -8px; left: -8px; right: -8px; bottom: -8px;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, transparent 0%, var(--accent) 20%, var(--accent-glow) 50%, transparent 70%);
+            z-index: 1; animation: spinRing 4s linear infinite; filter: blur(5px); opacity: 0.8; transition: all 0.5s ease;
+        }
+        @keyframes spinRing { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .avatar-container:hover .profile-pic { transform: scale(1.1) rotate(3deg); filter: brightness(1.1); }
+        .avatar-container:hover::before { animation-duration: 1.5s; filter: blur(3px) brightness(1.5); opacity: 1; }
+
+
+        /* SKILL BARS STYLES */
+        .skills-proficiency {
+            margin-top: 60px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 60px;
+        }
+        
+        .skill-bar-wrapper { 
+            margin-bottom: 35px; cursor: pointer; transition: transform 0.3s ease;
+        }
+        .skill-bar-wrapper:hover { transform: translateX(10px); }
+        
+        .skill-info {
+            display: flex; justify-content: space-between; margin-bottom: 12px;
+            color: white; font-family: var(--font-display); font-weight: 700; letter-spacing: 1px; font-size: 1.1rem;
+        }
+        
+        .counter { color: var(--accent); font-family: var(--font-body); font-variant-numeric: tabular-nums; }
+        
+        .skill-track {
+            width: 100%; height: 12px; background: rgba(255,255,255,0.05);
+            border-radius: 20px; overflow: hidden; position: relative;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .skill-fill {
+            height: 100%; border-radius: 20px; width: 0%;
+            position: relative; box-shadow: 0 0 20px var(--accent);
+            background: linear-gradient(90deg, var(--accent) 0%, #fff 50%, var(--accent) 100%);
+            background-size: 200% 100%; animation: flowLight 2s linear infinite;
+            transition: width 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        
+        .skill-bar-wrapper:hover .skill-fill { width: var(--target-width); }
+        
+        @keyframes flowLight { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+        @media(max-width: 768px) {
+            .skills-proficiency { grid-template-columns: 1fr; gap: 20px; }
+        }
+
+        /* =========================================
+           7. JOURNEY SECTION
+           ========================================= */
+        .timeline { position: relative; max-width: 800px; margin: 0 auto; }
+        .timeline::before { content: ''; position: absolute; left: 0; top: 0; width: 2px; height: 100%; background: linear-gradient(180deg, var(--accent), transparent); }
+        .timeline-item { position: relative; padding-left: 50px; margin-bottom: 60px; }
+        .timeline-dot { position: absolute; left: -6px; top: 0; width: 14px; height: 14px; background: var(--bg); border: 2px solid var(--accent); border-radius: 50%; box-shadow: 0 0 10px var(--accent); transition: 0.3s; animation: dotPulse 2s infinite; }
+        @keyframes dotPulse { 0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(74, 222, 128, 0); } 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); } }
+        .timeline-item:hover .timeline-dot { background: var(--accent); transform: scale(1.3); animation: none; box-shadow: 0 0 20px var(--accent); }
+        .timeline-year { font-family: var(--font-display); font-size: 2rem; font-weight: 700; color: var(--accent); margin-bottom: 10px; line-height: 1; }
+        .timeline-content { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 25px; border-radius: 16px; backdrop-filter: blur(10px); transition: 0.3s; }
+        .timeline-item:hover .timeline-content { background: rgba(255, 255, 255, 0.08); border-color: var(--accent); transform: translateX(10px); }
+        .timeline-title { font-size: 1.2rem; font-weight: 700; color: white; margin-bottom: 5px; }
+        .timeline-desc { color: var(--text-muted); font-size: 0.95rem; }
+
+        /* =========================================
+           8. PROJECTS SECTION
+           ========================================= */
+        .project-list { display: flex; flex-direction: column; gap: 5vh; }
+        .project-item { display: flex; align-items: center; justify-content: space-between; padding: 40px 0; border-bottom: 1px solid rgba(255,255,255,0.1); position: relative; transition: 0.5s; }
+        .project-item:hover { opacity: 1; padding: 40px 20px; background: rgba(255,255,255,0.03); }
+        .p-info h3 { font-size: 3rem; margin-bottom: 10px; }
+        .p-tags { font-family: var(--font-body); color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; font-size: 0.8rem; }
+        .p-image { position: absolute; width: 400px; height: 250px; background: #222; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0) rotate(-10deg); opacity: 0; transition: 0.6s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; overflow: hidden; border-radius: 8px; z-index: 10; }
+        .p-image img { width: 100%; height: 100%; object-fit: cover; }
+        .project-item:hover .p-image { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+
+        /* =========================================
+           9. FOOTER
+           ========================================= */
+        footer { padding: 100px 0; text-align: center; display: flex; flex-direction: column; align-items: center; }
+        .btn-big { font-size: 1.5rem; padding: 18px 45px; border: 1px solid rgba(255,255,255,0.3); border-radius: 100px; text-decoration: none; color: white; transition: 0.4s; position: relative; overflow: hidden; display: inline-block; margin-top: 20px; }
+        .btn-big::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--text-main); transform: scaleX(0); transform-origin: right; transition: transform 0.4s cubic-bezier(0.7, 0, 0.3, 1); z-index: -1; }
+        .btn-big:hover { color: var(--bg); border-color: var(--text-main); }
+        .btn-big:hover::before { transform: scaleX(1); transform-origin: left; }
+
+        .social-group { margin-top: 50px; display: flex; gap: 40px; justify-content: center; }
+        .social-link { color: var(--text-muted); text-decoration: none; transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 0.9rem; }
+        .social-link:hover { transform: translateY(-5px) scale(1.1); color: white; }
+        .social-link:hover .feather-github { stroke: #ffffff; filter: drop-shadow(0 0 10px rgba(255,255,255,0.5)); }
+        .social-link:hover .feather-linkedin { stroke: #0077b5; filter: drop-shadow(0 0 10px rgba(0, 119, 181, 0.5)); }
+        .social-link:hover .feather-facebook { stroke: #1877f2; filter: drop-shadow(0 0 10px rgba(24, 119, 242, 0.5)); }
+        .social-link:hover .feather-mail { stroke: #ea4335; filter: drop-shadow(0 0 10px rgba(234, 67, 53, 0.5)); }
+
+        @media(max-width: 768px) {
+            .huge-text { font-size: 15vw; } .bento-grid { grid-template-columns: 1fr; } 
+            .p-image { display: none; } .nav-items { display: none; } .cursor-dot, .cursor-circle { display: none; } * { cursor: auto; }
+            .timeline::before { left: 20px; } .timeline-item { padding-left: 60px; } .timeline-dot { left: 14px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="noise"></div>
+    <div class="vignette"></div>
+    <div id="canvas-container"><canvas id="bgCanvas"></canvas></div>
+    <div class="cursor-dot"></div>
+    <div class="cursor-circle"></div>
+
+    <nav>
+        <a href="#" class="logo hover-trigger">TàiVũ<span style="color:var(--accent)">.</span></a>
+        <div class="nav-items">
+            <a href="#about" class="nav-link hover-trigger">ABOUT</a>
+            <a href="#journey" class="nav-link hover-trigger">JOURNEY</a>
+            <a href="#projects" class="nav-link hover-trigger">PROJECT</a>
+            <a href="#contact" class="nav-link hover-trigger">CONTACT ME :3</a>
+        </div>
+    </nav>
+
+    <section class="section" style="height: 100vh; display: flex; align-items: center;">
+        <div class="container">
+            <p class="scroll-hidden" style="color: var(--accent); margin-bottom: 20px; letter-spacing: 3px; font-weight: 600;">TAI ZUX HERE</p>
+            <h1 class="huge-text hover-trigger scroll-hidden delay-1">
+                <span>S</span><span>O</span><span>F</span><span>T</span><span>W</span><span>A</span><span>R</span><span>E</span>
+            </h1>
+            <h1 class="huge-text hover-trigger scroll-hidden delay-2" style="margin-top: -20px; margin-left: 5vw;">
+                <span>E</span><span>N</span><span>G</span><span>I</span><span>N</span><span>E</span><span>E</span><span>R</span>
+            </h1>
+            
+            <p id="typewriter-text" class="typing-cursor scroll-hidden delay-3" style="max-width: 500px; margin-top: 40px; color: #bbb; line-height: 1.6; font-size: 1.1rem; min-height: 3.5em;">
+                </p>
+        </div>
+    </section>
+
+    <div class="marquee-container scroll-hidden">
+        <div class="marquee-content">
+            <span class="marquee-item">JAVASCRIPT</span>
+            <span class="marquee-item">JAVA CORE</span>
+            <span class="marquee-item">REACT.JS</span>
+            <span class="marquee-item">C LANGUAGE</span>
+            <span class="marquee-item">C++</span>
+            <span class="marquee-item">UI/UX</span>
+            <span class="marquee-item">SQL</span>
+            <span class="marquee-item">GIT</span>
+            <span class="marquee-item">JAVASCRIPT</span>
+            <span class="marquee-item">JAVA CORE</span>
+            <span class="marquee-item">REACT.JS</span>
+            <span class="marquee-item">C LANGUAGE</span>
+            <span class="marquee-item">C++</span>
+        </div>
+    </div>
+
+    <section id="about" class="about-section">
+        <div class="about-glow"></div>
+        <div class="container">
+            <h2 class="scroll-hidden" style="font-size: 3rem; margin-bottom: 50px; text-align: center; color: white;">WHO AM I?</h2>
+            
+            <div class="bento-grid">
+                <div class="bento-card hover-trigger scroll-hidden delay-1" style="grid-row: span 2;" data-tilt data-tilt-max="10" data-tilt-speed="400" data-tilt-glare data-tilt-max-glare="0.2">
+                    <div class="bento-content-layer">
+                        <div class="avatar-container hover-trigger">
+                            <img src="https://scontent.fsgn2-7.fna.fbcdn.net/v/t39.30808-1/555713961_1517819242821214_3083900049775294351_n.jpg?stp=cp6_dst-jpg_s200x200_tt6&_nc_cat=100&ccb=1-7&_nc_sid=1d2534&_nc_eui2=AeGVOHrypFo3Lig4B7Pd6PkLq_ThSxCmgsyr9OFLEKaCzMy9_Bow3P_b4E5f2tb5g2E1TY9efSImvF1K0lWOGDS0&_nc_ohc=ba5EszR2raYQ7kNvwHadWRZ&_nc_oc=Adk_V-Y4QczP4x839UxM4n1WKmnDbFNcWwWqFVMJ7rydBV3e4Yve7pajsfEQwiE0yfAO5Vibw2BFBM1iaxRmqbPS&_nc_zt=24&_nc_ht=scontent.fsgn2-7.fna&_nc_gid=_ND_J3p-b3Qtngj6F_ScIw&oh=00_Afm9hW7cTSQrvmS9Yw1hGAv0bTcJhp94Cu5xuxj2WzkV8w&oe=6947DB2A" class="profile-pic" alt="Tài Vũ Avatar">
+                        </div>
+                        <h3 class="bento-title" style="font-size: 2rem;">Tài Vũ</h3>
+                        <p class="bento-desc">
+                            Sinh viên năm nhất tại <strong>PTIT</strong> với niềm đam mê cháy bỏng về lập trình. 
+                            <br><br>
+                            Mình bị ám ảnh bởi việc tạo ra những giao diện <span style="color:var(--accent)">hoàn hảo từng pixel</span> và hiệu năng tối ưu. "NO CODE NO LIFE" 
+                        </p>
+                        <div style="margin-top: 30px;">
+                            <a href="#contact" class="btn-big hover-trigger" style="font-size: 1rem; padding: 12px 30px; margin:0;">Kết nối ngay</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bento-card hover-trigger scroll-hidden delay-2" style="text-align: center;" data-tilt data-tilt-max="15" data-tilt-speed="400">
+                    <div class="bento-content-layer">
+                        <h3 class="bento-title" style="justify-content: center;"><i data-feather="code"></i> Thống Kê</h3>
+                        <div style="display: flex; justify-content: space-around; width: 100%; margin-top: 10px;">
+                            <div>
+                                <div class="stat-number">1+</div>
+                                <div class="stat-label">Năm Exp</div>
+                            </div>
+                            <div>
+                                <div class="stat-number">3+</div>
+                                <div class="stat-label">Dự án</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bento-card hover-trigger scroll-hidden delay-3" data-tilt data-tilt-max="15" data-tilt-speed="400">
+                    <div class="bento-content-layer">
+                        <h3 class="bento-title"><i data-feather="target"></i> Mục tiêu</h3>
+                        <ul style="list-style: none; color: #ccc; line-height: 2;">
+                            <li>✓ Trở thành Fullstack Developer</li>
+                            <li>✓ Đóng góp vào Open Source</li>
+                            <li>✓ Học thêm về AI & Machine Learning</li>
+                            <li>✓ Phát triển nền công nghệ tại Việt Nam</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="scroll-hidden delay-3">
+                <h3 style="text-align:center; color:white; margin-bottom:40px; font-size:1.8rem; letter-spacing:2px;">TECHNICAL PROFICIENCY</h3>
+                
+                <div class="skills-proficiency">
+                    <div>
+                        <div class="skill-bar-wrapper hover-trigger" style="--target-width: 89%">
+                            <div class="skill-info"><span>C Language</span><span class="counter" data-target="89">0%</span></div>
+                            <div class="skill-track"><div class="skill-fill"></div></div>
+                        </div>
+                        
+                        <div class="skill-bar-wrapper hover-trigger" style="--target-width: 85%">
+                            <div class="skill-info"><span>C++</span><span class="counter" data-target="85">0%</span></div>
+                            <div class="skill-track"><div class="skill-fill"></div></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="skill-bar-wrapper hover-trigger" style="--target-width: 87%">
+                            <div class="skill-info"><span>HTML / CSS</span><span class="counter" data-target="87">0%</span></div>
+                            <div class="skill-track"><div class="skill-fill"></div></div>
+                        </div>
+                        
+                        <div class="skill-bar-wrapper hover-trigger" style="--target-width: 90%">
+                            <div class="skill-info"><span>GitHub / Git</span><span class="counter" data-target="90">0%</span></div>
+                            <div class="skill-track"><div class="skill-fill"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </section>
+
+    <section id="journey" class="section">
+        <div class="container">
+            <h2 class="scroll-hidden" style="font-size: 2.5rem; margin-bottom: 60px; color: white; text-align: center;">MY JOURNEY</h2>
+            
+            <div class="timeline">
+                <div class="timeline-item scroll-hidden delay-1">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-year">2024</div>
+                    <div class="timeline-content hover-trigger">
+                        <h3 class="timeline-title">Bắt đầu hành trình</h3>
+                        <p class="timeline-desc">Bắt đầu tự học lập trình (Học Code). Làm quen với các khái niệm cơ bản về tư duy máy tính và ngôn ngữ lập trình.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item scroll-hidden delay-2">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-year">2025</div>
+                    <div class="timeline-content hover-trigger">
+                        <h3 class="timeline-title">Sinh viên Đại học</h3>
+                        <p class="timeline-desc">Chính thức trở thành sinh viên năm nhất <strong>Học viện Công nghệ Bưu chính Viễn thông (PTIT)</strong> - Chuyên ngành Công nghệ Thông tin.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item scroll-hidden delay-3">
+                    <div class="timeline-dot" style="border-color: #666; box-shadow: none; animation: none;"></div>
+                    <div class="timeline-year" style="color: #666;">2026</div>
+                    <div class="timeline-content hover-trigger" style="border-style: dashed;">
+                        <h3 class="timeline-title">Loading...</h3>
+                        <p class="timeline-desc">Đang cập nhật những cột mốc tiếp theo. Tương lai đang chờ phía trước.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="projects" class="section">
+        <div class="container">
+            <h2 class="scroll-hidden" style="font-size: 2rem; margin-bottom: 60px; color: var(--text-muted);">SELECTED WORKS</h2>
+            
+            <div class="project-list">
+                <div class="project-item hover-trigger scroll-hidden delay-1">
+                    <div class="p-info">
+                        <h3>PTIT Dashboard</h3>
+                        <p class="p-tags">Frontend / UX Design</p>
+                    </div>
+                    <div class="p-arrow"><i data-feather="arrow-up-right" size="40"></i></div>
+                    <div class="p-image">
+                        <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop" alt="PTIT Project">
+                    </div>
+                </div>
+
+                <div class="project-item hover-trigger scroll-hidden delay-2">
+                    <div class="p-info">
+                        <h3>Java Calculator</h3>
+                        <p class="p-tags">Java Swing / Algorithm</p>
+                    </div>
+                    <div class="p-arrow"><i data-feather="arrow-up-right" size="40"></i></div>
+                    <div class="p-image">
+                        <img src="https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=2069&auto=format&fit=crop" alt="Calculator Project">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer id="contact" class="scroll-hidden">
+        <h2 style="font-size: 3rem; margin-bottom: 20px;">Sẵn sàng hợp tác?</h2>
+        <p style="color: #888; margin-bottom: 40px; max-width: 500px;">
+            Đừng ngần ngại liên hệ với tôi. Hãy cùng nhau biến những ý tưởng điên rồ thành hiện thực.
+        </p>
+
+        <a href="mailto:vuhuutai2007@gmail.com" class="btn-big hover-trigger">Gửi Email Ngay</a>
+
+        <div class="social-group">
+            <a href="https://github.com/TaiZux-hub" target="_blank" class="social-link hover-trigger">
+                <i data-feather="github" width="30" height="30"></i><span>GitHub</span>
+            </a>
+            <a href="https://www.linkedin.com/in/t%C3%A0i-v%C5%A9-h%E1%BB%AFu-901497394/" target="_blank" class="social-link hover-trigger">
+                <i data-feather="linkedin" width="30" height="30"></i><span>LinkedIn</span>
+            </a>
+            <a href="https://www.facebook.com/gaming.sparts" target="_blank" class="social-link hover-trigger">
+                <i data-feather="facebook" width="30" height="30"></i><span>Facebook</span>
+            </a>
+            <a href="mailto:vuhuutai2007@gmail.com" class="social-link hover-trigger">
+                <i data-feather="mail" width="30" height="30"></i><span>Gmail</span>
+            </a>
+        </div>
+
+        <p style="margin-top: 80px; color: #444; font-size: 0.8rem;">
+            © 2025 Tài Vũ. Designed with <span style="color:var(--accent)">Passion</span>.
+        </p>
+    </footer>
+
+    <script>
+        feather.replace();
+
+        /* --- 1. SCROLL REVEAL OBSERVER --- */
+        const observerOptions = { threshold: 0.15 };
+        const scrollObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if(entry.isIntersecting) {
+                    entry.target.classList.add('scroll-shown');
+                    observer.unobserve(entry.target);
+                }
+            })
+        }, observerOptions);
+        document.querySelectorAll('.scroll-hidden').forEach(el => scrollObserver.observe(el));
+
+        /* --- 2. SKILL BARS HOVER EFFECT & COUNTER --- */
+        const skillBars = document.querySelectorAll('.skill-bar-wrapper');
+        
+        skillBars.forEach(bar => {
+            bar.addEventListener('mouseenter', () => {
+                const counter = bar.querySelector('.counter');
+                const target = +counter.getAttribute('data-target');
+                let current = 0;
+                
+                // Chạy số từ 0 -> target
+                const interval = setInterval(() => {
+                    if (current < target) {
+                        current++;
+                        counter.innerText = current + "%";
+                    } else {
+                        clearInterval(interval);
+                    }
+                }, 10); // Tốc độ chạy số
+            });
+            
+            bar.addEventListener('mouseleave', () => {
+                // Reset số về 0 khi chuột rời đi
+                const counter = bar.querySelector('.counter');
+                counter.innerText = "0%";
+            });
+        });
+
+        /* --- 3. TYPEWRITER EFFECT --- */
+        const textToType = 'Chào, mình là <strong style="color:white">Tài Vũ</strong>. Mình không chỉ viết code, mình tạo ra những trải nghiệm kỹ thuật số sống động, tối ưu và đầy cảm hứng.';
+        const typeContainer = document.getElementById('typewriter-text');
+        let typeIndex = 0;
+        function typeWriter() {
+            if (typeIndex < textToType.length) {
+                if (textToType.charAt(typeIndex) === '<') {
+                    let tagEnd = textToType.indexOf('>', typeIndex);
+                    typeContainer.innerHTML += textToType.substring(typeIndex, tagEnd + 1);
+                    typeIndex = tagEnd + 1;
+                } else {
+                    typeContainer.innerHTML += textToType.charAt(typeIndex);
+                    typeIndex++;
+                }
+                setTimeout(typeWriter, 30);
+            }
+        }
+        setTimeout(typeWriter, 1500);
+
+        /* --- 4. CANVAS PHYSICS --- */
+        const canvas = document.getElementById('bgCanvas'); const ctx = canvas.getContext('2d');
+        let width, height, particles = [], mouse = { x: null, y: null };
+        const particleConfig = { count: 80, dist: 150, mouseDist: 200 };
+        const resize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
+        window.addEventListener('resize', resize); resize();
+        class Particle {
+            constructor() { this.x = Math.random() * width; this.y = Math.random() * height; this.vx = (Math.random() - 0.5) * 1; this.vy = (Math.random() - 0.5) * 1; this.size = Math.random() * 2; }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                if (mouse.x != null) {
+                    let dx = mouse.x - this.x; let dy = mouse.y - this.y; let distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < particleConfig.mouseDist) { const force = (particleConfig.mouseDist - distance) / particleConfig.mouseDist; this.x -= (dx / distance) * force * 3; this.y -= (dy / distance) * force * 3; }
+                }
+                if (this.x > width || this.x < 0) this.vx = -this.vx; if (this.y > height || this.y < 0) this.vy = -this.vy;
+            }
+            draw() { ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); }
+        }
+        const init = () => { particles = []; for (let i = 0; i < particleConfig.count; i++) particles.push(new Particle()); }; init();
+        const animate = () => {
+            ctx.clearRect(0, 0, width, height);
+            particles.forEach((p, i) => {
+                p.update(); p.draw();
+                for (let j = i; j < particles.length; j++) {
+                    let dx = p.x - particles[j].x; let dy = p.y - particles[j].y; let d = Math.sqrt(dx*dx + dy*dy);
+                    if (d < particleConfig.dist) { ctx.beginPath(); ctx.strokeStyle = `rgba(255,255,255,${0.1 - d/particleConfig.dist/10})`; ctx.moveTo(p.x, p.y); ctx.lineTo(particles[j].x, particles[j].y); ctx.stroke(); }
+                }
+            }); requestAnimationFrame(animate);
+        }; animate();
+        window.addEventListener('mousemove', e => { mouse.x = e.x; mouse.y = e.y; }); window.addEventListener('mouseout', () => { mouse.x = undefined; mouse.y = undefined; });
+
+        /* --- 5. MAGNETIC CURSOR --- */
+        const dot = document.querySelector('.cursor-dot'); const circle = document.querySelector('.cursor-circle');
+        let cursorX = 0, cursorY = 0, outlineX = 0, outlineY = 0;
+        document.addEventListener('mousemove', e => { cursorX = e.clientX; cursorY = e.clientY; });
+        const animateCursor = () => {
+            outlineX += (cursorX - outlineX) * 0.15; outlineY += (cursorY - outlineY) * 0.15;
+            dot.style.transform = `translate(${cursorX - 4}px, ${cursorY - 4}px)`; circle.style.transform = `translate(${outlineX - 20}px, ${outlineY - 20}px)`;
+            requestAnimationFrame(animateCursor);
+        }; animateCursor();
+        document.querySelectorAll('.hover-trigger').forEach(el => {
+            el.addEventListener('mouseenter', () => { circle.classList.add('active'); dot.style.opacity = '0'; });
+            el.addEventListener('mouseleave', () => { circle.classList.remove('active'); dot.style.opacity = '1'; el.style.transform = `translate(0px, 0px)`; });
+            el.addEventListener('mousemove', (e) => {
+                if(el.classList.contains('nav-link') || el.classList.contains('btn-big') || el.classList.contains('bento-card') || el.classList.contains('project-item') || el.classList.contains('social-link') || el.classList.contains('timeline-content') || el.classList.contains('skill-bar-wrapper')) {
+                    const rect = el.getBoundingClientRect(); const x = e.clientX - rect.left - rect.width / 2; const y = e.clientY - rect.top - rect.height / 2;
+                    el.style.transform = `translate(${x * 0.1}px, ${y * 0.1}px)`;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
